@@ -46,7 +46,7 @@ public:
 
     // typical behaviour methods
     void waitForGreen();
-    void simulate();
+    virtual void simulate();
 
 private:
     // typical behaviour methods

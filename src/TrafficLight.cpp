@@ -1,10 +1,10 @@
 #include <iostream>
 #include <random>
+#include <chrono>
 #include "TrafficLight.h"
 
 /* Implementation of class "MessageQueue" */
 
-/* 
 template <typename T>
 T MessageQueue<T>::receive()
 {
@@ -19,7 +19,7 @@ void MessageQueue<T>::send(T &&msg)
     // FP.4a : The method send should use the mechanisms std::lock_guard<std::mutex> 
     // as well as _condition.notify_one() to add a new message to the queue and afterwards send a notification.
 }
-*/
+
 
 /* Implementation of class "TrafficLight" */
 
@@ -43,6 +43,7 @@ TrafficLightPhase TrafficLight::getCurrentPhase()
 void TrafficLight::simulate()
 {
     // FP.2b : Finally, the private method „cycleThroughPhases“ should be started in a thread when the public method „simulate“ is called. To do this, use the thread queue in the base class. 
+    threads.emplace_back(std::thread(&TrafficLight::cycleThroughPhases, this));
 }
 
 // virtual function which is executed in a thread
@@ -52,4 +53,34 @@ void TrafficLight::cycleThroughPhases()
     // and toggles the current phase of the traffic light between red and green and sends an update method 
     // to the message queue using move semantics. The cycle duration should be a random value between 4 and 6 seconds. 
     // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles. 
+    using namespace std::chrono;
+
+    duration<int, std::milli> sleepDuration(1);
+    std::default_random_engine generator;
+    std::uniform_real_distribution<double> distribution(4.0, 6.0);
+
+    auto tNextChange = steady_clock::now() + duration<double>(distribution(generator));
+
+    while(true)
+    {
+        // SleepDuration is initialized ahead of time for efficient pass-by-reference
+        std::this_thread::sleep_for(sleepDuration);
+
+        if(steady_clock::now() >= tNextChange)
+        {
+            {   // change light phase in a block to create scope for the lock
+                std::lock_guard<std::mutex> lightChangeLock(_mtx);
+                if(_currentPhase == green)
+                    _currentPhase = red;
+                else
+                    _currentPhase = green;
+
+                auto msgPhase = _currentPhase;
+                _phaseQueue.send(std::move(msgPhase));
+            }
+
+            // outside of lock scope, choose next phase change time
+            tNextChange = steady_clock::now() + duration<double>(distribution(generator));
+        }
+    }
 }

@@ -30,8 +30,17 @@ void MessageQueue<T>::send(T &&msg)
     _cnd.notify_one();
 }
 
+/* Implementation of class "CrossThreadRandom" */
+
+double CrossThreadRandom::getUniformReal(double min, double max)
+{
+    std::lock_guard<std::mutex> lck(_mtx);
+    return std::uniform_real_distribution<double>(min, max)(_rndEngine);
+}
 
 /* Implementation of class "TrafficLight" */
+
+CrossThreadRandom TrafficLight::_random;
 
 TrafficLight::TrafficLight()
 {
@@ -72,10 +81,8 @@ void TrafficLight::cycleThroughPhases()
     using namespace std::chrono;
 
     duration<int, std::milli> sleepDuration(1);
-    std::default_random_engine generator;
-    std::uniform_real_distribution<double> distribution(4.0, 6.0);
 
-    auto tNextChange = steady_clock::now() + duration<double>(distribution(generator));
+    auto tNextChange = steady_clock::now() + duration<double>(_random.getUniformReal(4.0, 6.0));
 
     while(true)
     {
@@ -85,7 +92,7 @@ void TrafficLight::cycleThroughPhases()
         if(steady_clock::now() >= tNextChange)
         {
             {   // change light phase in a block to create scope for the lock
-                std::lock_guard<std::mutex> lightChangeLock(_mtx);
+                std::lock_guard<std::mutex> lightChangeLock(_mutex);
                 if(_currentPhase == green)
                     _currentPhase = red;
                 else
@@ -96,7 +103,7 @@ void TrafficLight::cycleThroughPhases()
             }
 
             // outside of lock scope, choose next phase change time
-            tNextChange = steady_clock::now() + duration<double>(distribution(generator));
+            tNextChange = steady_clock::now() + duration<double>(_random.getUniformReal(4.0, 6.0));
         }
     }
 }

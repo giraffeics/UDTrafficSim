@@ -4,6 +4,7 @@
 #include <mutex>
 #include <deque>
 #include <condition_variable>
+#include <random>
 #include "TrafficObject.h"
 
 // forward declarations to avoid include cycle
@@ -26,6 +27,16 @@ private:
     std::deque<T> _queue;
     std::mutex _mtx;
     std::condition_variable _cnd;
+};
+
+class CrossThreadRandom
+{
+public:
+    double getUniformReal(double min, double max);
+
+private:
+    std::default_random_engine _rndEngine;
+    std::mutex _mtx;
 };
 
 // FP.1 : Define a class „TrafficLight“ which is a child class of TrafficObject. 
@@ -64,6 +75,8 @@ private:
     std::condition_variable _condition;
     std::mutex _mutex;
     MessageQueue<TrafficLightPhase> _phaseQueue;
+
+    static CrossThreadRandom _random;
 };
 
 #endif
